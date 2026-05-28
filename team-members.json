@@ -1,0 +1,11 @@
+[
+  {
+    "repo": "test-org834/hr-member-john-doe",
+    "username": "john-doe",
+    "email": "johndoe@gmail.com",
+    "issue": 5,
+    "startDate": "2026-01-01",
+    "skipDailyReminder": true,
+    "isMandatory": true
+  }
+]
