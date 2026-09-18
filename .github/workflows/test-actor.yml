@@ -1,0 +1,81 @@
+# Second actor for Wizard notification tests.
+# The board never raises a signal for your own actions, so this workflow acts
+# as github-actions[bot]: it mentions you, requests reviews, opens, closes,
+# reopens, and merges. Run it from the Actions tab (workflow_dispatch) or:
+#   gh workflow run test-actor.yml -R test-org834/public-repo -f action=comment -f number=12 -f text="@angelicawill ping"
+name: Test actor
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: What the bot should do
+        type: choice
+        required: true
+        options:
+          - open-pr
+          - comment
+          - request-review
+          - close
+          - reopen
+          - merge
+      number:
+        description: PR or issue number (not used by open-pr)
+        required: false
+      text:
+        description: >-
+          comment: the body. open-pr: the issue number the PR resolves.
+          request-review: a login or org/team.
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  act:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      ACTION: ${{ inputs.action }}
+      NUMBER: ${{ inputs.number }}
+      TEXT: ${{ inputs.text }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: open-pr
+        if: env.ACTION == 'open-pr'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch="test-actor/${{ github.run_id }}"
+          git checkout -b "$branch"
+          echo "run ${{ github.run_id }}" >> test-actor.log
+          git add test-actor.log
+          git commit -m "test: actor change ${{ github.run_id }}"
+          git push origin "$branch"
+          body="test PR from the actor workflow"
+          if [ -n "$TEXT" ]; then body="resolves #$TEXT"; fi
+          gh pr create --title "test: actor PR ${{ github.run_id }}" --body "$body" --head "$branch"
+
+      - name: comment
+        if: env.ACTION == 'comment'
+        run: gh issue comment "$NUMBER" --body "$TEXT"
+
+      - name: request-review
+        if: env.ACTION == 'request-review'
+        run: gh pr edit "$NUMBER" --add-reviewer "$TEXT"
+
+      - name: close
+        if: env.ACTION == 'close'
+        run: gh pr close "$NUMBER" 2>/dev/null || gh issue close "$NUMBER"
+
+      - name: reopen
+        if: env.ACTION == 'reopen'
+        run: gh pr reopen "$NUMBER" 2>/dev/null || gh issue reopen "$NUMBER"
+
+      - name: merge
+        if: env.ACTION == 'merge'
+        run: gh pr merge "$NUMBER" --merge --delete-branch
